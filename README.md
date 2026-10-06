@@ -100,6 +100,49 @@ flowchart TD
 - **Phase 2: Network Isolation:** Invokes network orchestration (e.g., Netherman) to reroute upstream load balancer traffic.
 - **Phase 3: Automated FRU Dispatch:** Synthesizes an actionable Field Replaceable Unit (FRU) ticket containing exact DIMM slot locations, vendor part numbers, and an AI-generated explanation of the failure mode.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Node as OCP Node (OpenBMC)
+    participant OTel as OpenTelemetry Collector
+    participant EdgeSLM as Edge SLM (Rack Controller)
+    participant Sched as Scheduler (Twine / K8s)
+    participant Net as Network Drain (Netherman)
+    participant DC as DC Technician Dispatch
+
+    Node->>OTel: Scrape OpenBMC Redfish Logs (DRAM CE Burst)
+    OTel->>EdgeSLM: Stream Hardware Spans (< 5ms)
+    EdgeSLM->>EdgeSLM: Infer Pre-Failure Signature (DRI > 85.0)
+    EdgeSLM->>Sched: Trigger Preemptive Workload Cordon & Drain
+    Sched->>Sched: Live-Migrate In-Flight Workloads (0 Outage)
+    EdgeSLM->>Net: Divert BGP Traffic at Top-of-Rack Switch
+    EdgeSLM->>DC: Synthesize FRU Work Order with AI Diagnostics
+```
+
+### 📡 Sample OpenBMC Redfish Telemetry Ingestion
+
+```json
+{
+  "@odata.id": "/redfish/v1/Systems/1/Memory/DIMM_B2",
+  "Id": "DIMM_B2",
+  "Name": "Memory Module B2",
+  "Manufacturer": "SK Hynix",
+  "CapacityMiB": 65536,
+  "Status": {
+    "Health": "Warning",
+    "State": "Degraded"
+  },
+  "Oem": {
+    "OpenBMC": {
+      "CorrectableErrorCount": 142,
+      "CorrectableRatePerMinute": 9.46,
+      "UncorrectableErrorCount": 0,
+      "PreFailureSignatureDetected": true
+    }
+  }
+}
+```
+
 ---
 
 ## 🏢 Hyperscale Production Engineering Tool Mapping
